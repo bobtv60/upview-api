@@ -1,4 +1,4 @@
-import { createServerClient} from '@supabase/ssr'
+import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
@@ -89,7 +89,7 @@ export async function GET(request: Request) {
 
     // Store the Roblox user data in Supabase
     const { data: { user } } = await supabase.auth.getUser()
-    
+
     if (user) {
       // Update user metadata with Roblox username
       await supabase.auth.updateUser({
@@ -99,7 +99,17 @@ export async function GET(request: Request) {
       })
 
       // Store detailed Roblox data in profiles table
-      await supabase
+      // await supabase
+      //   .from('user_profiles')
+      //   .upsert({
+      //     user_id: user.id,
+      //     roblox_id: userData.sub,
+      //     roblox_username: userData.preferred_username,
+      //     roblox_access_token: tokenData.access_token,
+      //     roblox_refresh_token: tokenData.refresh_token,
+      //     updated_at: new Date().toISOString(),
+      //   })
+      const { error, data } = await supabase
         .from('user_profiles')
         .upsert({
           user_id: user.id,
@@ -108,7 +118,12 @@ export async function GET(request: Request) {
           roblox_access_token: tokenData.access_token,
           roblox_refresh_token: tokenData.refresh_token,
           updated_at: new Date().toISOString(),
-        })
+        });
+
+      if (error) console.error('Upsert failed:', error);
+      else console.log('Upsert succeeded:', data);
+
+      // maybe this is the issue that its not creating it in the db?
     }
 
     // Redirect to workspace creation step

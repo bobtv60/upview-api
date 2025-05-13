@@ -3,6 +3,21 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import type { SerializeOptions } from 'cookie'
 
+// Add CORS headers to the response
+function corsHeaders() {
+  return {
+    'Access-Control-Allow-Origin': 'https://www.upview.dev',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Credentials': 'true',
+  }
+}
+
+// Handle OPTIONS request for CORS preflight
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders() })
+}
+
 export async function GET(request: Request) {
   const cookieStore = await cookies()
   const supabase = createServerClient(
@@ -25,7 +40,10 @@ export async function GET(request: Request) {
 
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Unauthorized' }, { 
+      status: 401,
+      headers: corsHeaders()
+    })
   }
 
   const url = new URL(request.url)
@@ -33,7 +51,10 @@ export async function GET(request: Request) {
   const id = url.searchParams.get('id') // user_id or player_id
 
   if (!type || !id) {
-    return NextResponse.json({ error: 'Missing type or id parameter' }, { status: 400 })
+    return NextResponse.json({ error: 'Missing type or id parameter' }, { 
+      status: 400,
+      headers: corsHeaders()
+    })
   }
 
   if (type === 'user') {
@@ -45,7 +66,10 @@ export async function GET(request: Request) {
       .single()
 
     if (!profile?.roblox_username) {
-      return NextResponse.json({ error: 'No Roblox username found' }, { status: 404 })
+      return NextResponse.json({ error: 'No Roblox username found' }, { 
+        status: 404,
+        headers: corsHeaders()
+      })
     }
 
     // Fetch from Roblox API
@@ -60,11 +84,16 @@ export async function GET(request: Request) {
     })
 
     if (!response.ok) {
-      return NextResponse.json({ error: 'Failed to fetch Roblox avatar' }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to fetch Roblox avatar' }, { 
+        status: 500,
+        headers: corsHeaders()
+      })
     }
 
     const data = await response.json()
-    return NextResponse.json({ data: data.data?.[0]?.imageUrl || null })
+    return NextResponse.json({ data: data.data?.[0]?.imageUrl || null }, {
+      headers: corsHeaders()
+    })
   } else if (type === 'player') {
     // Get player avatar from cache
     const { data: cachedAvatar } = await supabase
@@ -80,7 +109,9 @@ export async function GET(request: Request) {
     const isCacheValid = now.getTime() - cacheAge < 24 * 60 * 60 * 1000 // 24 hours
 
     if (cachedAvatar?.avatar_url && isCacheValid) {
-      return NextResponse.json({ data: cachedAvatar.avatar_url })
+      return NextResponse.json({ data: cachedAvatar.avatar_url }, {
+        headers: corsHeaders()
+      })
     }
 
     // If not in cache or expired, fetch from Roblox
@@ -91,7 +122,10 @@ export async function GET(request: Request) {
       .single()
 
     if (!player?.name) {
-      return NextResponse.json({ error: 'Player not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Player not found' }, { 
+        status: 404,
+        headers: corsHeaders()
+      })
     }
 
     const response = await fetch('https://api.upview.dev/roblox', {
@@ -105,14 +139,20 @@ export async function GET(request: Request) {
     })
 
     if (!response.ok) {
-      return NextResponse.json({ error: 'Failed to fetch Roblox avatar' }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to fetch Roblox avatar' }, { 
+        status: 500,
+        headers: corsHeaders()
+      })
     }
 
     const data = await response.json()
     const avatarUrl = data.data?.[0]?.imageUrl
 
     if (!avatarUrl) {
-      return NextResponse.json({ error: 'No avatar URL found' }, { status: 404 })
+      return NextResponse.json({ error: 'No avatar URL found' }, { 
+        status: 404,
+        headers: corsHeaders()
+      })
     }
 
     // Update cache
@@ -125,8 +165,13 @@ export async function GET(request: Request) {
         updated_at: new Date().toISOString()
       })
 
-    return NextResponse.json({ data: avatarUrl })
+    return NextResponse.json({ data: avatarUrl }, {
+      headers: corsHeaders()
+    })
   }
 
-  return NextResponse.json({ error: 'Invalid type parameter' }, { status: 400 })
+  return NextResponse.json({ error: 'Invalid type parameter' }, { 
+    status: 400,
+    headers: corsHeaders()
+  })
 } 

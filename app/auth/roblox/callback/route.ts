@@ -7,7 +7,7 @@ export async function GET(request: Request) {
   const code = requestUrl.searchParams.get('code')
 
   if (!code) {
-    return NextResponse.redirect(new URL('/onboarding?error=no_code', request.url))
+    return NextResponse.redirect(new URL('https://upview.dev/onboarding?error=no_code', request.url))
   }
 
   try {
@@ -112,9 +112,9 @@ export async function GET(request: Request) {
     }
 
     // Redirect to workspace creation step
-    return NextResponse.redirect(new URL('/onboarding?step=workspace', request.url))
+    return NextResponse.redirect(new URL('https://upview.dev/onboarding?step=workspace', request.url))
   } catch (error) {
     console.error('Roblox OAuth error:', error)
-    return NextResponse.redirect(new URL('/onboarding?error=oauth_failed', request.url))
+    return NextResponse.redirect(new URL('https://upview.dev/onboarding?error=oauth_failed', request.url))
   }
 } 

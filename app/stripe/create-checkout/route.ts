@@ -10,17 +10,46 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2025-04-30.basil',
 });
 
-export async function POST() {
+export async function POST(request: Request) {
+  // Handle CORS
+  if (request.method === 'OPTIONS') {
+    return new NextResponse(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': 'https://upview.dev',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      },
+    });
+  }
+
   try {
+    // Get auth token from request
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { 
+        status: 401,
+        headers: {
+          'Access-Control-Allow-Origin': 'https://upview.dev',
+        }
+      });
+    }
+
+    const token = authHeader.split(' ')[1];
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
-    // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Verify the token and get user
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { 
+        status: 401,
+        headers: {
+          'Access-Control-Allow-Origin': 'https://upview.dev',
+        }
+      });
     }
 
     // Check if user already has an active subscription
@@ -32,7 +61,12 @@ export async function POST() {
       .single();
 
     if (existingSubscription) {
-      return NextResponse.json({ error: 'Active subscription exists' }, { status: 400 });
+      return NextResponse.json({ error: 'Active subscription exists' }, { 
+        status: 400,
+        headers: {
+          'Access-Control-Allow-Origin': 'https://upview.dev',
+        }
+      });
     }
 
     // Create Stripe checkout session
@@ -58,12 +92,21 @@ export async function POST() {
       allow_promotion_codes: true,
     });
 
-    return NextResponse.json({ url: session.url });
+    return NextResponse.json({ url: session.url }, {
+      headers: {
+        'Access-Control-Allow-Origin': 'https://upview.dev',
+      }
+    });
   } catch (error) {
     console.error('Stripe checkout error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'Access-Control-Allow-Origin': 'https://upview.dev',
+        }
+      }
     );
   }
 } 

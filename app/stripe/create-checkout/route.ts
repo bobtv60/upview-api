@@ -10,16 +10,28 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2025-04-30.basil',
 });
 
+// List of allowed origins
+const ALLOWED_ORIGINS = ['https://upview.dev', 'https://www.upview.dev'];
+
+// Helper function to get CORS headers
+function getCorsHeaders(origin: string | null) {
+  const allowedOrigin = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Credentials': 'true',
+  };
+}
+
 export async function POST(request: Request) {
+  const origin = request.headers.get('origin');
+
   // Handle CORS
   if (request.method === 'OPTIONS') {
     return new NextResponse(null, {
       status: 204,
-      headers: {
-        'Access-Control-Allow-Origin': 'https://upview.dev',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      },
+      headers: getCorsHeaders(origin),
     });
   }
 
@@ -29,9 +41,7 @@ export async function POST(request: Request) {
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { 
         status: 401,
-        headers: {
-          'Access-Control-Allow-Origin': 'https://upview.dev',
-        }
+        headers: getCorsHeaders(origin),
       });
     }
 
@@ -46,9 +56,7 @@ export async function POST(request: Request) {
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { 
         status: 401,
-        headers: {
-          'Access-Control-Allow-Origin': 'https://upview.dev',
-        }
+        headers: getCorsHeaders(origin),
       });
     }
 
@@ -63,9 +71,7 @@ export async function POST(request: Request) {
     if (existingSubscription) {
       return NextResponse.json({ error: 'Active subscription exists' }, { 
         status: 400,
-        headers: {
-          'Access-Control-Allow-Origin': 'https://upview.dev',
-        }
+        headers: getCorsHeaders(origin),
       });
     }
 
@@ -93,9 +99,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ url: session.url }, {
-      headers: {
-        'Access-Control-Allow-Origin': 'https://upview.dev',
-      }
+      headers: getCorsHeaders(origin),
     });
   } catch (error) {
     console.error('Stripe checkout error:', error);
@@ -103,9 +107,7 @@ export async function POST(request: Request) {
       { error: 'Internal server error' },
       { 
         status: 500,
-        headers: {
-          'Access-Control-Allow-Origin': 'https://upview.dev',
-        }
+        headers: getCorsHeaders(origin),
       }
     );
   }

@@ -88,8 +88,8 @@ export async function POST(request: Request) {
       subscription_data: {
         trial_period_days: 14,
       },
-      success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/onboarding?step=workspace&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/onboarding?step=payment`,
+      success_url: `https://www.upview.dev/onboarding?step=workspace&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `https://www.upview.dev/onboarding?step=payment`,
       customer_email: user.email,
       metadata: {
         userId: user.id,

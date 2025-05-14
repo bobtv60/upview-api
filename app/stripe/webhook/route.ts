@@ -22,6 +22,7 @@ export async function POST(req: Request) {
     const signature = req.headers.get('stripe-signature');
 
     if (!signature) {
+      console.error('No signature provided');
       return NextResponse.json(
         { error: 'No signature provided' },
         { status: 400 }
@@ -40,29 +41,57 @@ export async function POST(req: Request) {
       );
     }
 
+    console.log('Processing webhook event:', event.type);
+
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.SUPABASE_SERVICE_ROLE_KEY! // Use service role key for admin access
     );
 
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
+        
+        if (!session.metadata?.userId) {
+          console.error('No userId in session metadata');
+          return NextResponse.json(
+            { error: 'No userId in session metadata' },
+            { status: 400 }
+          );
+        }
+
+        console.log('Processing checkout.session.completed for user:', session.metadata.userId);
+
         const subscription = await stripe.subscriptions.retrieve(
           session.subscription as string
         );
 
-        await supabase
+        console.log('Retrieved subscription:', subscription.id);
+
+        const { error: upsertError } = await supabase
           .from('subscriptions')
           .upsert({
-            user_id: session.metadata?.userId,
+            user_id: session.metadata.userId,
             stripe_customer_id: session.customer as string,
             stripe_subscription_id: session.subscription as string,
             status: subscription.status,
             plan_id: subscription.items.data[0].price.id,
-            trial_end: new Date(subscription.trial_end! * 1000).toISOString(),
+            trial_end: subscription.trial_end 
+              ? new Date(subscription.trial_end * 1000).toISOString()
+              : null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           });
 
+        if (upsertError) {
+          console.error('Error upserting subscription:', upsertError);
+          return NextResponse.json(
+            { error: 'Failed to create subscription record' },
+            { status: 500 }
+          );
+        }
+
+        console.log('Successfully created subscription record');
         break;
       }
 
@@ -70,16 +99,28 @@ export async function POST(req: Request) {
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
 
-        await supabase
+        console.log('Processing subscription update:', subscription.id);
+
+        const { error: updateError } = await supabase
           .from('subscriptions')
           .update({
             status: subscription.status,
             trial_end: subscription.trial_end 
               ? new Date(subscription.trial_end * 1000).toISOString()
               : null,
+            updated_at: new Date().toISOString(),
           })
           .eq('stripe_subscription_id', subscription.id);
 
+        if (updateError) {
+          console.error('Error updating subscription:', updateError);
+          return NextResponse.json(
+            { error: 'Failed to update subscription record' },
+            { status: 500 }
+          );
+        }
+
+        console.log('Successfully updated subscription record');
         break;
       }
     }

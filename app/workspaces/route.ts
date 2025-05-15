@@ -2,6 +2,8 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import type { SerializeOptions } from 'cookie'
+import Joi from 'joi'
+import { handleSupabaseError } from '@/lib/supabase-server'
 
 export async function GET() {
   const cookieStore = await cookies()
@@ -67,21 +69,30 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { name, description } = body
 
-  if (!name) {
-    return NextResponse.json({ error: 'Name is required' }, { status: 400 })
+  // Joi schema for input validation
+  const schema = Joi.object({
+    name: Joi.string().min(2).max(100).required(),
+    description: Joi.string().max(500).allow('', null),
+  })
+  const { error: validationError, value } = schema.validate(body)
+  if (validationError) {
+    return NextResponse.json({ error: validationError.details[0].message }, { status: 400 })
   }
 
-  const { data, error } = await supabase
-    .from('workspaces')
-    .insert({
-      name: name.trim(),
-      description: description?.trim(),
-      owner_id: user.id,
-    })
-    .select()
-    .single()
+  const { name, description } = value
+
+  const { data, error } = await handleSupabaseError(async () =>
+    await supabase
+      .from('workspaces')
+      .insert({
+        name: name.trim(),
+        description: description?.trim(),
+        owner_id: user.id,
+      })
+      .select()
+      .single()
+  )
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })

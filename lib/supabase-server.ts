@@ -26,7 +26,7 @@ export function createServerClient(options?: SupabaseClientOptions): SupabaseCli
 
 // Helper function to handle Supabase errors
 export async function handleSupabaseError<T>(
-  operation: () => Promise<{ data: T | null; error: any }>
+  operation: () => Promise<{ data: T | null; error: Error | null }>
 ): Promise<{ data: T | null; error: Error | null }> {
   try {
     const { data, error } = await operation()
